@@ -1,0 +1,262 @@
+---
+title: 'インストールガイド'
+description: 'AI Agent Presentation Frameworkの開発環境セットアップ'
+---
+
+## 必要な環境
+
+AI Agent Presentation Frameworkを使用するには、以下の環境が必要です：
+
+### システム要件
+
+- **OS**: macOS、Linux、Windows (WSL2推奨)
+- **Node.js**: 18.0.0 以上
+- **npm**: 8.0.0 以上 (または yarn 1.22.0 以上)
+- **Git**: 2.30.0 以上
+- **メモリ**: 最低4GB RAM (8GB以上推奨)
+
+### 推奨ツール
+
+- **エディタ**: Visual Studio Code
+- **ブラウザ**: Chrome、Firefox、Safari の最新版
+- **ターミナル**: iTerm2 (macOS)、Windows Terminal (Windows)
+
+## インストール手順
+
+### 1. Node.jsのインストール
+
+<Tabs>
+  <Tab title="macOS">
+    Homebrewを使用してインストール：
+    ```bash
+    brew install node
+    ```
+    
+    またはnvmを使用：
+    ```bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    nvm install 18
+    nvm use 18
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    1. [Node.js公式サイト](https://nodejs.org/)からインストーラーをダウンロード
+    2. インストーラーを実行し、指示に従う
+    
+    またはChocolateyを使用：
+    ```powershell
+    choco install nodejs
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    NodeSourceリポジトリを使用：
+    ```bash
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    ```
+  </Tab>
+</Tabs>
+
+### 2. プロジェクトのセットアップ
+
+<Steps>
+  <Step title="リポジトリのクローン">
+    ```bash
+    git clone https://github.com/your-org/ai-agent-presentation.git
+    cd ai-agent-presentation
+    ```
+  </Step>
+  
+  <Step title="依存関係のインストール">
+    ```bash
+    npm install
+    ```
+    
+    <Note>
+      初回インストール時は数分かかる場合があります。
+    </Note>
+  </Step>
+  
+  <Step title="環境変数の設定">
+    `.env.example` ファイルをコピー：
+    ```bash
+    cp .env.example .env.local
+    ```
+  </Step>
+</Steps>
+
+## 環境変数の設定
+
+### 必須の環境変数
+
+`.env.local` ファイルに以下の環境変数を設定してください：
+
+```env
+# OpenAI API設定
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+
+# データベース設定
+DATABASE_URL=postgresql://user:password@localhost:5432/ai_agent_db
+
+# アプリケーション設定
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NODE_ENV=development
+
+# セッション設定
+SESSION_SECRET=your-session-secret-key
+
+# ログ設定
+LOG_LEVEL=debug
+```
+
+### オプションの環境変数
+
+必要に応じて以下の環境変数も設定できます：
+
+```env
+# Redis設定（キャッシュ用）
+REDIS_URL=redis://localhost:6379
+
+# S3設定（ファイルストレージ用）
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+AWS_S3_BUCKET=your-bucket-name
+
+# モニタリング設定
+SENTRY_DSN=https://xxxxx@sentry.io/xxxxx
+
+# その他のAI API設定
+ANTHROPIC_API_KEY=your-anthropic-key
+GOOGLE_AI_API_KEY=your-google-ai-key
+```
+
+## データベースのセットアップ
+
+### PostgreSQLのインストール
+
+<Tabs>
+  <Tab title="Docker">
+    ```bash
+    docker run --name ai-agent-db \
+      -e POSTGRES_PASSWORD=password \
+      -e POSTGRES_DB=ai_agent_db \
+      -p 5432:5432 \
+      -d postgres:15
+    ```
+  </Tab>
+  
+  <Tab title="ローカルインストール">
+    macOS:
+    ```bash
+    brew install postgresql
+    brew services start postgresql
+    ```
+    
+    Ubuntu/Debian:
+    ```bash
+    sudo apt-get install postgresql postgresql-contrib
+    sudo systemctl start postgresql
+    ```
+  </Tab>
+</Tabs>
+
+### データベースの初期化
+
+```bash
+# マイグレーションの実行
+npm run db:migrate
+
+# 初期データの投入（開発用）
+npm run db:seed
+```
+
+## 動作確認
+
+### 開発サーバーの起動
+
+```bash
+npm run dev
+```
+
+ブラウザで `http://localhost:3000` を開き、アプリケーションが表示されることを確認します。
+
+### ヘルスチェック
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+以下のようなレスポンスが返れば正常です：
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0",
+  "timestamp": "2024-06-12T10:00:00.000Z"
+}
+```
+
+## トラブルシューティング
+
+### よくある問題と解決方法
+
+<AccordionGroup>
+  <Accordion title="npm install でエラーが発生する">
+    - Node.jsのバージョンを確認: `node --version`
+    - キャッシュをクリア: `npm cache clean --force`
+    - node_modulesを削除して再インストール:
+      ```bash
+      rm -rf node_modules package-lock.json
+      npm install
+      ```
+  </Accordion>
+  
+  <Accordion title="データベース接続エラー">
+    - PostgreSQLが起動しているか確認
+    - DATABASE_URLの形式が正しいか確認
+    - ユーザー権限を確認:
+      ```sql
+      GRANT ALL PRIVILEGES ON DATABASE ai_agent_db TO your_user;
+      ```
+  </Accordion>
+  
+  <Accordion title="OpenAI APIエラー">
+    - APIキーが正しく設定されているか確認
+    - APIキーの利用制限を確認
+    - ネットワーク接続を確認
+  </Accordion>
+</AccordionGroup>
+
+### ログの確認
+
+問題が解決しない場合は、ログを確認してください：
+
+```bash
+# アプリケーションログ
+tail -f logs/app.log
+
+# エラーログ
+tail -f logs/error.log
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="クイックスタート" icon="rocket" href="/quickstart">
+    最初のエージェントを作成する
+  </Card>
+  
+  <Card title="プロジェクト構造" icon="folder-tree" href="/project-structure">
+    ディレクトリ構造と主要ファイルの説明
+  </Card>
+  
+  <Card title="開発ガイド" icon="code" href="/development">
+    開発時のベストプラクティス
+  </Card>
+  
+  <Card title="デプロイメント" icon="cloud" href="/deployment">
+    本番環境へのデプロイ方法
+  </Card>
+</CardGroup>

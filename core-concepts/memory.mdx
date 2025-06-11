@@ -1,0 +1,610 @@
+---
+title: 'メモリ管理'
+description: 'エージェントの記憶と学習を支えるメモリシステム'
+---
+
+## メモリシステムの概要
+
+AI Agent Presentation Frameworkのメモリシステムは、エージェントが過去の対話や実行結果を記憶し、継続的に学習・改善するための基盤です。人間の記憶システムを模倣し、短期記憶、長期記憶、エピソード記憶などを実装しています。
+
+### メモリシステムの特徴
+
+- **階層的構造**: 短期・長期・エピソード記憶の3層構造
+- **ベクトル検索**: 意味的に類似した記憶の高速検索
+- **自動圧縮**: 重要度に基づく記憶の圧縮と整理
+- **永続化**: セッション間での記憶の保持
+
+## メモリの種類
+
+### 1. 短期記憶（Working Memory）
+
+```typescript
+class WorkingMemory {
+  private buffer: MemoryItem[] = [];
+  private maxSize: number = 10;
+  
+  add(item: MemoryItem): void {
+    this.buffer.push({
+      ...item,
+      timestamp: Date.now(),
+      accessCount: 0
+    });
+    
+    // バッファサイズを超えたら古いものを削除
+    if (this.buffer.length > this.maxSize) {
+      this.buffer.shift();
+    }
+  }
+  
+  getRecent(n: number = 5): MemoryItem[] {
+    return this.buffer.slice(-n);
+  }
+  
+  clear(): void {
+    this.buffer = [];
+  }
+}
+```
+
+### 2. 長期記憶（Long-term Memory）
+
+```typescript
+class LongTermMemory {
+  private vectorStore: VectorStore;
+  private importanceThreshold: number = 0.7;
+  
+  async store(item: MemoryItem): Promise<void> {
+    // 重要度の計算
+    const importance = await this.calculateImportance(item);
+    
+    if (importance >= this.importanceThreshold) {
+      // ベクトル化
+      const vector = await this.embed(item.content);
+      
+      // メタデータと共に保存
+      await this.vectorStore.upsert({
+        id: item.id,
+        vector,
+        metadata: {
+          content: item.content,
+          type: item.type,
+          timestamp: item.timestamp,
+          importance,
+          tags: item.tags
+        }
+      });
+    }
+  }
+  
+  async retrieve(
+    query: string, 
+    topK: number = 5
+  ): Promise<MemoryItem[]> {
+    const queryVector = await this.embed(query);
+    
+    const results = await this.vectorStore.search({
+      vector: queryVector,
+      topK,
+      filter: {
+        importance: { $gte: 0.5 }
+      }
+    });
+    
+    return results.map(r => r.metadata as MemoryItem);
+  }
+}
+```
+
+### 3. エピソード記憶（Episodic Memory）
+
+```typescript
+class EpisodicMemory {
+  private episodes: Episode[] = [];
+  
+  async addEpisode(episode: Episode): Promise<void> {
+    // エピソードの構造化
+    const structuredEpisode = {
+      id: generateId(),
+      timestamp: Date.now(),
+      context: episode.context,
+      actions: episode.actions,
+      outcome: episode.outcome,
+      learnings: await this.extractLearnings(episode)
+    };
+    
+    this.episodes.push(structuredEpisode);
+    
+    // 関連するエピソードとのリンク作成
+    await this.linkRelatedEpisodes(structuredEpisode);
+  }
+  
+  async findSimilarEpisodes(
+    context: Context
+  ): Promise<Episode[]> {
+    return this.episodes.filter(episode => 
+      this.calculateSimilarity(episode.context, context) > 0.8
+    );
+  }
+  
+  private async extractLearnings(
+    episode: Episode
+  ): Promise<Learning[]> {
+    // エピソードから学習内容を抽出
+    const patterns = this.identifyPatterns(episode);
+    const insights = await this.generateInsights(patterns);
+    
+    return insights.map(insight => ({
+      pattern: insight.pattern,
+      confidence: insight.confidence,
+      applicability: insight.applicability
+    }));
+  }
+}
+```
+
+## Memory Synapseアーキテクチャ
+
+### コア実装
+
+```typescript
+class MemorySynapse {
+  private workingMemory: WorkingMemory;
+  private longTermMemory: LongTermMemory;
+  private episodicMemory: EpisodicMemory;
+  private consolidationService: ConsolidationService;
+  
+  constructor(config: MemoryConfig) {
+    this.workingMemory = new WorkingMemory(config.workingMemorySize);
+    this.longTermMemory = new LongTermMemory(config.vectorStore);
+    this.episodicMemory = new EpisodicMemory(config.episodeStore);
+    this.consolidationService = new ConsolidationService();
+    
+    // 定期的な記憶の統合
+    this.startConsolidation();
+  }
+  
+  async remember(content: any, type: MemoryType): Promise<void> {
+    const memoryItem = {
+      id: generateId(),
+      content,
+      type,
+      timestamp: Date.now()
+    };
+    
+    // まず短期記憶に追加
+    this.workingMemory.add(memoryItem);
+    
+    // 重要なものは長期記憶へ
+    if (await this.shouldPersist(memoryItem)) {
+      await this.longTermMemory.store(memoryItem);
+    }
+  }
+  
+  async recall(
+    query: string, 
+    options?: RecallOptions
+  ): Promise<MemoryResult> {
+    // 短期記憶から検索
+    const recentMemories = this.workingMemory.search(query);
+    
+    // 長期記憶から検索
+    const longTermMemories = await this.longTermMemory.retrieve(
+      query, 
+      options?.topK || 5
+    );
+    
+    // 関連するエピソードを検索
+    const episodes = await this.episodicMemory.findRelevant(query);
+    
+    return {
+      recent: recentMemories,
+      longTerm: longTermMemories,
+      episodes,
+      combined: this.mergeResults(recentMemories, longTermMemories, episodes)
+    };
+  }
+}
+```
+
+### 記憶の統合（Memory Consolidation）
+
+```typescript
+class ConsolidationService {
+  async consolidate(synapse: MemorySynapse): Promise<void> {
+    // 短期記憶から重要な情報を抽出
+    const importantMemories = await this.extractImportant(
+      synapse.workingMemory.getAll()
+    );
+    
+    // パターンの識別
+    const patterns = await this.identifyPatterns(importantMemories);
+    
+    // 既存の記憶との統合
+    for (const pattern of patterns) {
+      const relatedMemories = await synapse.longTermMemory.retrieve(
+        pattern.description
+      );
+      
+      if (relatedMemories.length > 0) {
+        // 既存の記憶を強化
+        await this.reinforceMemories(relatedMemories, pattern);
+      } else {
+        // 新しいパターンとして保存
+        await synapse.longTermMemory.store({
+          content: pattern,
+          type: 'pattern',
+          importance: pattern.confidence
+        });
+      }
+    }
+    
+    // 不要な記憶の削除（忘却）
+    await this.forgetIrrelevant(synapse);
+  }
+  
+  private async forgetIrrelevant(synapse: MemorySynapse): Promise<void> {
+    const threshold = Date.now() - 30 * 24 * 60 * 60 * 1000; // 30日
+    
+    const oldMemories = await synapse.longTermMemory.query({
+      filter: {
+        lastAccessed: { $lt: threshold },
+        importance: { $lt: 0.3 }
+      }
+    });
+    
+    for (const memory of oldMemories) {
+      await synapse.longTermMemory.delete(memory.id);
+    }
+  }
+}
+```
+
+## ベクトルストレージ
+
+### ベクトル化と検索
+
+```typescript
+class VectorMemoryStore {
+  private embedder: Embedder;
+  private index: VectorIndex;
+  
+  async addMemory(memory: Memory): Promise<void> {
+    // テキストをベクトルに変換
+    const vector = await this.embedder.embed(memory.content);
+    
+    // インデックスに追加
+    await this.index.upsert({
+      id: memory.id,
+      vector,
+      metadata: {
+        ...memory,
+        vector_magnitude: this.calculateMagnitude(vector)
+      }
+    });
+    
+    // インデックスの最適化
+    if (this.shouldOptimize()) {
+      await this.index.optimize();
+    }
+  }
+  
+  async search(
+    query: string, 
+    options: SearchOptions
+  ): Promise<SearchResult[]> {
+    const queryVector = await this.embedder.embed(query);
+    
+    // ハイブリッド検索（ベクトル + メタデータ）
+    const results = await this.index.search({
+      vector: queryVector,
+      topK: options.topK || 10,
+      filter: options.filter,
+      includeMetadata: true
+    });
+    
+    // リランキング
+    return this.rerank(results, query, options);
+  }
+  
+  private rerank(
+    results: SearchResult[], 
+    query: string, 
+    options: SearchOptions
+  ): SearchResult[] {
+    return results
+      .map(result => ({
+        ...result,
+        relevanceScore: this.calculateRelevance(result, query, options)
+      }))
+      .sort((a, b) => b.relevanceScore - a.relevanceScore)
+      .slice(0, options.topK || 10);
+  }
+}
+```
+
+### 効率的なインデックス管理
+
+```typescript
+class HierarchicalVectorIndex {
+  private levels: IndexLevel[] = [];
+  
+  constructor(config: IndexConfig) {
+    // 階層的インデックスの構築
+    this.levels = [
+      new IndexLevel({ dimension: 128, capacity: 10000 }),  // 粗い
+      new IndexLevel({ dimension: 512, capacity: 50000 }),  // 中間
+      new IndexLevel({ dimension: 1536, capacity: 100000 }) // 詳細
+    ];
+  }
+  
+  async insert(item: VectorItem): Promise<void> {
+    // 各レベルに適切な解像度で保存
+    for (let i = 0; i < this.levels.length; i++) {
+      const reducedVector = await this.reduceVector(
+        item.vector, 
+        this.levels[i].dimension
+      );
+      
+      await this.levels[i].insert({
+        ...item,
+        vector: reducedVector
+      });
+    }
+  }
+  
+  async search(query: VectorQuery): Promise<VectorItem[]> {
+    // 粗いレベルから検索を開始
+    let candidates = await this.levels[0].search({
+      ...query,
+      topK: query.topK * 10
+    });
+    
+    // 段階的に絞り込み
+    for (let i = 1; i < this.levels.length; i++) {
+      const refinedCandidates = [];
+      
+      for (const candidate of candidates) {
+        const detailed = await this.levels[i].get(candidate.id);
+        if (detailed) {
+          refinedCandidates.push(detailed);
+        }
+      }
+      
+      candidates = this.rerank(refinedCandidates, query.vector)
+        .slice(0, query.topK * 5);
+    }
+    
+    return candidates.slice(0, query.topK);
+  }
+}
+```
+
+## メモリの永続化
+
+### データベース統合
+
+```typescript
+class PersistentMemory {
+  private db: Database;
+  private cache: MemoryCache;
+  
+  async save(memory: Memory): Promise<void> {
+    // データベースに保存
+    await this.db.memories.insert({
+      id: memory.id,
+      content: memory.content,
+      type: memory.type,
+      vector: memory.vector,
+      metadata: memory.metadata,
+      created_at: new Date(),
+      updated_at: new Date()
+    });
+    
+    // キャッシュを更新
+    this.cache.set(memory.id, memory);
+    
+    // インデックスを更新
+    await this.updateIndices(memory);
+  }
+  
+  async load(id: string): Promise<Memory | null> {
+    // キャッシュから取得を試みる
+    const cached = this.cache.get(id);
+    if (cached) return cached;
+    
+    // データベースから取得
+    const record = await this.db.memories.findOne({ id });
+    if (!record) return null;
+    
+    const memory = this.recordToMemory(record);
+    this.cache.set(id, memory);
+    
+    return memory;
+  }
+  
+  async backup(): Promise<void> {
+    const timestamp = new Date().toISOString();
+    const backupPath = `backups/memory_${timestamp}.json`;
+    
+    // 全メモリをエクスポート
+    const memories = await this.db.memories.find({}).toArray();
+    
+    // 圧縮して保存
+    const compressed = await this.compress(memories);
+    await fs.writeFile(backupPath, compressed);
+    
+    // 古いバックアップを削除
+    await this.cleanOldBackups();
+  }
+}
+```
+
+## メモリの活用
+
+### コンテキスト構築
+
+```typescript
+class ContextBuilder {
+  private memory: MemorySynapse;
+  
+  async buildContext(
+    currentInput: string,
+    options?: ContextOptions
+  ): Promise<Context> {
+    // 関連する記憶を取得
+    const memories = await this.memory.recall(currentInput, {
+      topK: options?.maxMemories || 10
+    });
+    
+    // 時系列でソート
+    const timeline = this.createTimeline(memories.combined);
+    
+    // 重要度で重み付け
+    const weighted = this.weightByImportance(timeline);
+    
+    // コンテキストを構築
+    return {
+      recent: memories.recent.slice(0, 3),
+      relevant: weighted.slice(0, 5),
+      episodes: memories.episodes.slice(0, 2),
+      summary: await this.summarize(weighted)
+    };
+  }
+  
+  private async summarize(memories: Memory[]): Promise<string> {
+    if (memories.length === 0) return '';
+    
+    const contents = memories.map(m => m.content).join('\n');
+    
+    return await this.llm.summarize(contents, {
+      maxTokens: 200,
+      style: 'concise'
+    });
+  }
+}
+```
+
+### 学習と適応
+
+```typescript
+class AdaptiveMemory {
+  async learn(
+    interaction: Interaction
+  ): Promise<LearningResult> {
+    // インタラクションからパターンを抽出
+    const patterns = await this.extractPatterns(interaction);
+    
+    // 既存の知識と比較
+    const similarities = await this.findSimilarPatterns(patterns);
+    
+    // 新しい学習または既存知識の強化
+    const learnings = [];
+    
+    for (const pattern of patterns) {
+      const similar = similarities[pattern.id];
+      
+      if (similar && similar.confidence > 0.8) {
+        // 既存パターンを強化
+        await this.reinforcePattern(similar.pattern, pattern);
+        learnings.push({
+          type: 'reinforced',
+          pattern: similar.pattern,
+          confidence: similar.confidence + 0.1
+        });
+      } else {
+        // 新しいパターンとして保存
+        await this.storeNewPattern(pattern);
+        learnings.push({
+          type: 'new',
+          pattern,
+          confidence: pattern.initialConfidence
+        });
+      }
+    }
+    
+    return { learnings, adapted: learnings.length > 0 };
+  }
+}
+```
+
+## パフォーマンス最適化
+
+### メモリプール
+
+```typescript
+class MemoryPool {
+  private pools: Map<MemoryType, ObjectPool<Memory>>;
+  
+  constructor() {
+    this.pools = new Map([
+      ['working', new ObjectPool(() => new WorkingMemoryItem())],
+      ['long-term', new ObjectPool(() => new LongTermMemoryItem())],
+      ['episodic', new ObjectPool(() => new EpisodicMemoryItem())]
+    ]);
+  }
+  
+  acquire(type: MemoryType): Memory {
+    return this.pools.get(type)!.acquire();
+  }
+  
+  release(memory: Memory): void {
+    memory.reset();
+    this.pools.get(memory.type)!.release(memory);
+  }
+}
+```
+
+### インデックス最適化
+
+```typescript
+class OptimizedMemoryIndex {
+  private bloomFilter: BloomFilter;
+  private lruCache: LRUCache<string, Memory>;
+  
+  constructor(config: IndexConfig) {
+    this.bloomFilter = new BloomFilter(config.expectedItems);
+    this.lruCache = new LRUCache(config.cacheSize);
+  }
+  
+  async search(query: string): Promise<Memory[]> {
+    // ブルームフィルタで事前チェック
+    if (!this.bloomFilter.mightContain(query)) {
+      return [];
+    }
+    
+    // LRUキャッシュをチェック
+    const cached = this.lruCache.get(query);
+    if (cached) return [cached];
+    
+    // 実際の検索を実行
+    const results = await this.performSearch(query);
+    
+    // 結果をキャッシュ
+    if (results.length > 0) {
+      this.lruCache.set(query, results[0]);
+    }
+    
+    return results;
+  }
+}
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="ネットワーク" icon="network-wired" href="/core-concepts/networks">
+    エージェント間でメモリを共有するネットワーク
+  </Card>
+  
+  <Card title="メモリ実装ガイド" icon="brain" href="/guides/implementing-memory">
+    カスタムメモリシステムの実装方法
+  </Card>
+  
+  <Card title="メモリ最適化" icon="gauge-high" href="/guides/memory-optimization">
+    大規模なメモリシステムの最適化テクニック
+  </Card>
+  
+  <Card title="APIリファレンス" icon="code" href="/api-reference/memory">
+    メモリAPIの詳細な仕様
+  </Card>
+</CardGroup>

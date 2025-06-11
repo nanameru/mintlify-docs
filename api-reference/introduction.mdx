@@ -1,33 +1,262 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: 'APIリファレンス'
+description: 'AI Agent Presentation FrameworkのRESTful API仕様'
 ---
 
+## APIの概要
+
+AI Agent Presentation Frameworkは、包括的なRESTful APIを提供し、エージェント、ツール、ワークフローをプログラムから操作できます。これらのAPIを使用して、独自のアプリケーションやサービスと統合することが可能です。
+
+### APIの特徴
+
+- **RESTful設計**: 標準的なHTTPメソッドとステータスコード
+- **JSON形式**: すべてのリクエスト・レスポンスはJSON
+- **認証**: JWT Bearer Token認証
+- **バージョニング**: URLパスによるAPIバージョン管理
+- **レート制限**: 適切な使用量制限
+
+## ベースURL
+
+```
+https://api.ai-agent-presentation.com/v1
+```
+
 <Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
+  開発環境では `http://localhost:3000/api` がベースURLとなります。
 </Note>
 
-## Welcome
+## APIエンドポイント一覧
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+<CardGroup cols={2}>
+  <Card title="チャットAPI" icon="comments" href="/api-reference/endpoint/chat">
+    基本的なチャット機能とリアルタイム対話
+  </Card>
+  
+  <Card title="マルチエージェントチャット" icon="users" href="/api-reference/endpoint/multi-agent-chat">
+    複数のエージェントが協調するチャット機能
+  </Card>
+  
+  <Card title="スライド生成" icon="presentation" href="/api-reference/endpoint/slide-creator">
+    AIによる自動プレゼンテーション生成
+  </Card>
+  
+  <Card title="ディープリサーチ" icon="magnifying-glass" href="/api-reference/endpoint/deep-research">
+    包括的な情報収集と分析
+  </Card>
+  
+  <Card title="エクスポート" icon="download" href="/api-reference/endpoint/export-pptx">
+    PowerPoint形式でのエクスポート
+  </Card>
+  
+  <Card title="キーワード抽出" icon="tags" href="/api-reference/endpoint/extract-keywords">
+    テキストからの重要キーワード抽出
+  </Card>
+  
+  <Card title="メディア処理" icon="image" href="/api-reference/endpoint/media">
+    画像・動画の処理とアップロード
+  </Card>
+  
+  <Card title="Webhook" icon="webhook" href="/api-reference/endpoint/webhook">
+    イベント通知とWebhook設定
+  </Card>
+</CardGroup>
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## 認証
 
-## Authentication
+### JWT Bearer Token認証
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+すべてのAPIエンドポイントは、JWTトークンによる認証が必要です。
+
+```bash
+curl -X POST https://api.ai-agent-presentation.com/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "your-password"
+  }'
+```
+
+レスポンス：
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "refresh_token_here",
+  "expiresIn": 3600,
+  "user": {
+    "id": "user123",
+    "email": "user@example.com",
+    "name": "User Name"
+  }
+}
+```
+
+### APIキーでの認証
+
+プログラムからの利用には、APIキーを推奨します：
+
+```bash
+curl -X GET https://api.ai-agent-presentation.com/v1/agents \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## 共通レスポンス形式
+
+### 成功レスポンス
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
+{
+  "success": true,
+  "data": {
+    // API固有のデータ
+  },
+  "metadata": {
+    "timestamp": "2024-06-12T10:00:00Z",
+    "requestId": "req_123456",
+    "version": "1.0.0"
   }
-]
+}
 ```
+
+### エラーレスポンス
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "入力データが無効です",
+    "details": {
+      "field": "email",
+      "reason": "有効なメールアドレスを入力してください"
+    }
+  },
+  "metadata": {
+    "timestamp": "2024-06-12T10:00:00Z",
+    "requestId": "req_123456"
+  }
+}
+```
+
+## エラーコード一覧
+
+| コード | HTTPステータス | 説明 |
+|--------|---------------|------|
+| `VALIDATION_ERROR` | 400 | リクエストデータの検証エラー |
+| `UNAUTHORIZED` | 401 | 認証が必要 |
+| `FORBIDDEN` | 403 | アクセス権限なし |
+| `NOT_FOUND` | 404 | リソースが見つからない |
+| `RATE_LIMIT_EXCEEDED` | 429 | レート制限に達した |
+| `INTERNAL_ERROR` | 500 | サーバー内部エラー |
+| `SERVICE_UNAVAILABLE` | 503 | サービス利用不可 |
+
+## レート制限
+
+APIの公平な利用を確保するため、レート制限を設けています：
+
+- **認証済みユーザー**: 1000リクエスト/時間
+- **APIキー**: 5000リクエスト/時間
+- **プレミアムプラン**: 10000リクエスト/時間
+
+レート制限の状況は、レスポンスヘッダーで確認できます：
+
+```http
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1623456789
+```
+
+## ページネーション
+
+大量のデータを返すAPIでは、ページネーションを使用します：
+
+```bash
+GET /v1/agents?page=2&limit=20
+```
+
+レスポンス：
+```json
+{
+  "success": true,
+  "data": [
+    // エージェントのリスト
+  ],
+  "pagination": {
+    "page": 2,
+    "limit": 20,
+    "total": 150,
+    "totalPages": 8,
+    "hasNext": true,
+    "hasPrev": true
+  }
+}
+```
+
+## Webhook
+
+イベントドリブンな統合のため、Webhookをサポートしています：
+
+```json
+{
+  "event": "agent.task.completed",
+  "timestamp": "2024-06-12T10:00:00Z",
+  "data": {
+    "taskId": "task_123",
+    "agentId": "agent_456",
+    "result": {
+      // タスクの実行結果
+    }
+  }
+}
+```
+
+利用可能なイベント：
+- `agent.task.started`
+- `agent.task.completed`
+- `agent.task.failed`
+- `workflow.started`
+- `workflow.completed`
+- `slide.generated`
+
+## SDK
+
+各種プログラミング言語のSDKを提供しています：
+
+<CardGroup cols={3}>
+  <Card title="JavaScript/TypeScript" icon="js">
+    ```bash
+    npm install @ai-agent/sdk
+    ```
+  </Card>
+  
+  <Card title="Python" icon="python">
+    ```bash
+    pip install ai-agent-sdk
+    ```
+  </Card>
+  
+  <Card title="Go" icon="golang">
+    ```bash
+    go get github.com/ai-agent/go-sdk
+    ```
+  </Card>
+</CardGroup>
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="認証ガイド" icon="key" href="/guides/authentication">
+    詳細な認証・認可の実装方法
+  </Card>
+  
+  <Card title="APIクライアント作成" icon="code" href="/guides/api-client">
+    カスタムAPIクライアントの作成方法
+  </Card>
+  
+  <Card title="Webhookガイド" icon="webhook" href="/guides/webhooks">
+    Webhookの設定と活用方法
+  </Card>
+  
+  <Card title="OpenAPI仕様" icon="file-code" href="/api-reference/openapi.json">
+    完全なOpenAPI仕様書
+  </Card>
+</CardGroup>

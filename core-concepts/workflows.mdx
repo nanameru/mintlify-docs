@@ -1,0 +1,572 @@
+---
+title: 'ワークフロー'
+description: '複数のエージェントを連携させて複雑なタスクを実行する仕組み'
+---
+
+## ワークフローとは
+
+ワークフローは、複数のエージェントとツールを組み合わせて、複雑なタスクを段階的に実行するための仕組みです。各ステップが順次または並列に実行され、データが流れるパイプラインとして機能します。
+
+### ワークフローの特徴
+
+- **オーケストレーション**: 複数のエージェントの協調動作を管理
+- **データフロー**: ステップ間でのデータの受け渡しを自動化
+- **エラーハンドリング**: 失敗時の再試行やフォールバック処理
+- **スケーラビリティ**: 並列処理による高速化
+
+## ワークフローの基本構造
+
+### ワークフロー定義
+
+```typescript
+interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  steps: WorkflowStep[];
+  triggers?: WorkflowTrigger[];
+  config?: WorkflowConfig;
+}
+
+interface WorkflowStep {
+  id: string;
+  name: string;
+  type: 'agent' | 'tool' | 'condition' | 'parallel';
+  executor: Agent | Tool;
+  inputs?: InputMapping[];
+  outputs?: OutputMapping[];
+  next?: string | ConditionalNext[];
+}
+```
+
+### シンプルなワークフロー
+
+```typescript
+const researchWorkflow = new Workflow({
+  name: 'Research and Report',
+  description: 'トピックをリサーチしてレポートを生成',
+  steps: [
+    {
+      id: 'search',
+      name: 'Web検索',
+      type: 'agent',
+      executor: webSearchAgent,
+      outputs: [{ name: 'searchResults', path: '$.results' }]
+    },
+    {
+      id: 'analyze',
+      name: 'データ分析',
+      type: 'agent',
+      executor: analysisAgent,
+      inputs: [{ name: 'data', from: 'search.searchResults' }],
+      outputs: [{ name: 'analysis', path: '$.analysis' }]
+    },
+    {
+      id: 'report',
+      name: 'レポート生成',
+      type: 'agent',
+      executor: reportAgent,
+      inputs: [
+        { name: 'searchData', from: 'search.searchResults' },
+        { name: 'analysisData', from: 'analyze.analysis' }
+      ]
+    }
+  ]
+});
+```
+
+## ワークフローパターン
+
+### 1. シーケンシャルパターン
+
+```typescript
+class SequentialWorkflow extends BaseWorkflow {
+  async execute(input: any): Promise<WorkflowResult> {
+    let currentData = input;
+    const results: StepResult[] = [];
+    
+    for (const step of this.steps) {
+      try {
+        const stepResult = await this.executeStep(step, currentData);
+        results.push(stepResult);
+        currentData = stepResult.output;
+      } catch (error) {
+        return this.handleError(error, step, results);
+      }
+    }
+    
+    return {
+      success: true,
+      results,
+      finalOutput: currentData
+    };
+  }
+}
+```
+
+### 2. パラレルパターン
+
+```typescript
+class ParallelWorkflow extends BaseWorkflow {
+  async execute(input: any): Promise<WorkflowResult> {
+    const parallelSteps = this.steps.filter(s => s.type === 'parallel');
+    
+    // 並列実行
+    const promises = parallelSteps.map(step => 
+      this.executeStep(step, input)
+    );
+    
+    const results = await Promise.allSettled(promises);
+    
+    // 結果の集約
+    const successfulResults = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => (r as PromiseFulfilledResult<StepResult>).value);
+    
+    return {
+      success: results.every(r => r.status === 'fulfilled'),
+      results: successfulResults,
+      finalOutput: this.mergeResults(successfulResults)
+    };
+  }
+}
+```
+
+### 3. 条件分岐パターン
+
+```typescript
+class ConditionalWorkflow extends BaseWorkflow {
+  async execute(input: any): Promise<WorkflowResult> {
+    let currentStep = this.steps[0];
+    const results: StepResult[] = [];
+    
+    while (currentStep) {
+      const stepResult = await this.executeStep(currentStep, input);
+      results.push(stepResult);
+      
+      // 条件に基づいて次のステップを決定
+      if (currentStep.next && typeof currentStep.next !== 'string') {
+        currentStep = this.evaluateCondition(
+          currentStep.next as ConditionalNext[],
+          stepResult.output
+        );
+      } else {
+        currentStep = this.getStepById(currentStep.next as string);
+      }
+    }
+    
+    return {
+      success: true,
+      results,
+      finalOutput: results[results.length - 1].output
+    };
+  }
+  
+  private evaluateCondition(
+    conditions: ConditionalNext[],
+    data: any
+  ): WorkflowStep | undefined {
+    for (const condition of conditions) {
+      if (this.checkCondition(condition.condition, data)) {
+        return this.getStepById(condition.nextStep);
+      }
+    }
+    return undefined;
+  }
+}
+```
+
+## 実践的なワークフロー例
+
+### プレゼンテーション生成ワークフロー
+
+```typescript
+const presentationWorkflow = new Workflow({
+  name: 'AI Presentation Generator',
+  description: 'トピックから完全なプレゼンテーションを生成',
+  steps: [
+    // ステップ1: トピック分析
+    {
+      id: 'analyze-topic',
+      name: 'トピック分析',
+      type: 'agent',
+      executor: topicAnalyzerAgent,
+      outputs: [
+        { name: 'keywords', path: '$.keywords' },
+        { name: 'outline', path: '$.outline' }
+      ]
+    },
+    
+    // ステップ2: 並列リサーチ
+    {
+      id: 'parallel-research',
+      name: '並列リサーチ',
+      type: 'parallel',
+      executor: new ParallelExecutor([
+        webResearchAgent,
+        academicResearchAgent,
+        newsResearchAgent
+      ]),
+      inputs: [{ name: 'keywords', from: 'analyze-topic.keywords' }],
+      outputs: [{ name: 'researchData', path: '$' }]
+    },
+    
+    // ステップ3: コンテンツ生成
+    {
+      id: 'generate-content',
+      name: 'コンテンツ生成',
+      type: 'agent',
+      executor: contentGeneratorAgent,
+      inputs: [
+        { name: 'outline', from: 'analyze-topic.outline' },
+        { name: 'research', from: 'parallel-research.researchData' }
+      ],
+      outputs: [{ name: 'slides', path: '$.slides' }]
+    },
+    
+    // ステップ4: ビジュアル生成
+    {
+      id: 'generate-visuals',
+      name: 'ビジュアル生成',
+      type: 'agent',
+      executor: visualGeneratorAgent,
+      inputs: [{ name: 'slides', from: 'generate-content.slides' }],
+      outputs: [{ name: 'visualizedSlides', path: '$' }]
+    },
+    
+    // ステップ5: 最終調整
+    {
+      id: 'finalize',
+      name: '最終調整',
+      type: 'agent',
+      executor: finalizerAgent,
+      inputs: [{ name: 'slides', from: 'generate-visuals.visualizedSlides' }]
+    }
+  ]
+});
+```
+
+### データ処理パイプライン
+
+```typescript
+const dataProcessingWorkflow = new Workflow({
+  name: 'Data Processing Pipeline',
+  description: '大規模データの処理と分析',
+  steps: [
+    {
+      id: 'validate',
+      name: 'データ検証',
+      type: 'tool',
+      executor: dataValidationTool,
+      next: [
+        {
+          condition: { field: 'isValid', operator: 'eq', value: true },
+          nextStep: 'clean'
+        },
+        {
+          condition: { field: 'isValid', operator: 'eq', value: false },
+          nextStep: 'error-handler'
+        }
+      ]
+    },
+    {
+      id: 'clean',
+      name: 'データクリーニング',
+      type: 'tool',
+      executor: dataCleaningTool,
+      next: 'transform'
+    },
+    {
+      id: 'transform',
+      name: 'データ変換',
+      type: 'agent',
+      executor: dataTransformAgent,
+      next: 'analyze'
+    },
+    {
+      id: 'analyze',
+      name: 'データ分析',
+      type: 'parallel',
+      executor: new ParallelExecutor([
+        statisticalAnalysisTool,
+        mlAnalysisAgent,
+        visualizationTool
+      ])
+    },
+    {
+      id: 'error-handler',
+      name: 'エラー処理',
+      type: 'agent',
+      executor: errorHandlerAgent
+    }
+  ]
+});
+```
+
+## ワークフローの実行制御
+
+### エラーハンドリングとリトライ
+
+```typescript
+class ResilientWorkflow extends BaseWorkflow {
+  private retryConfig = {
+    maxRetries: 3,
+    backoffMultiplier: 2,
+    initialDelay: 1000
+  };
+  
+  async executeStep(
+    step: WorkflowStep, 
+    input: any
+  ): Promise<StepResult> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+      try {
+        return await this.runStep(step, input);
+      } catch (error) {
+        lastError = error as Error;
+        
+        if (attempt < this.retryConfig.maxRetries) {
+          await this.delay(
+            this.retryConfig.initialDelay * 
+            Math.pow(this.retryConfig.backoffMultiplier, attempt)
+          );
+          console.log(`Retrying step ${step.id}, attempt ${attempt + 1}`);
+        }
+      }
+    }
+    
+    // リトライ失敗後のフォールバック
+    if (step.fallback) {
+      return this.executeFallback(step.fallback, input);
+    }
+    
+    throw lastError!;
+  }
+}
+```
+
+### タイムアウトとキャンセレーション
+
+```typescript
+class TimeoutWorkflow extends BaseWorkflow {
+  async execute(
+    input: any, 
+    options?: { timeout?: number; signal?: AbortSignal }
+  ): Promise<WorkflowResult> {
+    const timeout = options?.timeout || 300000; // 5分
+    const signal = options?.signal;
+    
+    return Promise.race([
+      this.runWorkflow(input, signal),
+      this.timeoutPromise(timeout),
+      this.cancellationPromise(signal)
+    ]);
+  }
+  
+  private async timeoutPromise(ms: number): Promise<never> {
+    await new Promise(resolve => setTimeout(resolve, ms));
+    throw new Error(`Workflow timeout after ${ms}ms`);
+  }
+  
+  private async cancellationPromise(
+    signal?: AbortSignal
+  ): Promise<never> {
+    if (!signal) return new Promise(() => {});
+    
+    return new Promise((_, reject) => {
+      signal.addEventListener('abort', () => {
+        reject(new Error('Workflow cancelled'));
+      });
+    });
+  }
+}
+```
+
+## ワークフローの監視とデバッグ
+
+### 実行トレース
+
+```typescript
+class TracedWorkflow extends BaseWorkflow {
+  private traces: ExecutionTrace[] = [];
+  
+  async executeStep(
+    step: WorkflowStep, 
+    input: any
+  ): Promise<StepResult> {
+    const startTime = Date.now();
+    const trace: ExecutionTrace = {
+      stepId: step.id,
+      stepName: step.name,
+      startTime,
+      input: this.sanitizeForLogging(input)
+    };
+    
+    try {
+      const result = await super.executeStep(step, input);
+      trace.endTime = Date.now();
+      trace.duration = trace.endTime - startTime;
+      trace.output = this.sanitizeForLogging(result.output);
+      trace.success = true;
+      
+      this.traces.push(trace);
+      this.emitTrace(trace);
+      
+      return result;
+    } catch (error) {
+      trace.endTime = Date.now();
+      trace.duration = trace.endTime - startTime;
+      trace.error = error;
+      trace.success = false;
+      
+      this.traces.push(trace);
+      this.emitTrace(trace);
+      
+      throw error;
+    }
+  }
+  
+  getExecutionReport(): ExecutionReport {
+    return {
+      totalDuration: this.traces.reduce((sum, t) => sum + t.duration, 0),
+      stepCount: this.traces.length,
+      successRate: this.traces.filter(t => t.success).length / this.traces.length,
+      traces: this.traces
+    };
+  }
+}
+```
+
+### メトリクス収集
+
+```typescript
+class MetricsWorkflow extends BaseWorkflow {
+  private metrics = new WorkflowMetrics();
+  
+  async execute(input: any): Promise<WorkflowResult> {
+    this.metrics.recordStart();
+    
+    try {
+      const result = await super.execute(input);
+      this.metrics.recordSuccess();
+      return result;
+    } catch (error) {
+      this.metrics.recordFailure(error);
+      throw error;
+    } finally {
+      this.metrics.recordEnd();
+      this.publishMetrics();
+    }
+  }
+  
+  private publishMetrics(): void {
+    const summary = this.metrics.getSummary();
+    
+    telemetry.gauge('workflow.duration', summary.duration);
+    telemetry.increment('workflow.executions', 1, {
+      status: summary.success ? 'success' : 'failure',
+      workflow: this.name
+    });
+    
+    if (summary.stepMetrics) {
+      summary.stepMetrics.forEach(metric => {
+        telemetry.gauge('workflow.step.duration', metric.duration, {
+          step: metric.stepName,
+          workflow: this.name
+        });
+      });
+    }
+  }
+}
+```
+
+## ワークフローの最適化
+
+### キャッシング戦略
+
+```typescript
+class CachedWorkflow extends BaseWorkflow {
+  private cache = new WorkflowCache();
+  
+  async executeStep(
+    step: WorkflowStep, 
+    input: any
+  ): Promise<StepResult> {
+    const cacheKey = this.generateCacheKey(step, input);
+    
+    // キャッシュチェック
+    const cached = await this.cache.get(cacheKey);
+    if (cached && !this.isCacheExpired(cached)) {
+      return cached.result;
+    }
+    
+    // 実行
+    const result = await super.executeStep(step, input);
+    
+    // キャッシュ保存
+    if (step.cacheable) {
+      await this.cache.set(cacheKey, {
+        result,
+        timestamp: Date.now(),
+        ttl: step.cacheTTL || 3600000
+      });
+    }
+    
+    return result;
+  }
+}
+```
+
+### 動的スケーリング
+
+```typescript
+class ScalableWorkflow extends BaseWorkflow {
+  private workerPool: WorkerPool;
+  
+  async execute(input: any): Promise<WorkflowResult> {
+    const workload = this.estimateWorkload(input);
+    
+    // 動的にワーカー数を調整
+    if (workload > this.workerPool.capacity * 0.8) {
+      await this.workerPool.scale(
+        Math.ceil(workload / this.workerPool.workerCapacity)
+      );
+    }
+    
+    return super.execute(input);
+  }
+  
+  private estimateWorkload(input: any): number {
+    // 入力データのサイズや複雑さに基づいて負荷を推定
+    const dataSize = JSON.stringify(input).length;
+    const stepComplexity = this.steps.reduce(
+      (sum, step) => sum + this.getStepComplexity(step), 
+      0
+    );
+    
+    return dataSize * stepComplexity;
+  }
+}
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="ワークフロー構築ガイド" icon="hammer" href="/guides/building-workflows">
+    実際にワークフローを構築するステップバイステップガイド
+  </Card>
+  
+  <Card title="ネットワーク" icon="network-wired" href="/core-concepts/networks">
+    複数のワークフローを連携させるネットワークの概念
+  </Card>
+  
+  <Card title="ワークフローテンプレート" icon="copy" href="/templates/workflows">
+    すぐに使えるワークフローテンプレート集
+  </Card>
+  
+  <Card title="APIリファレンス" icon="code" href="/api-reference/workflows">
+    ワークフローAPIの詳細な仕様
+  </Card>
+</CardGroup>

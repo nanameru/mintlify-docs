@@ -1,0 +1,434 @@
+---
+title: 'チャットAPI'
+description: '基本的なチャット機能とリアルタイム対話のAPI'
+---
+
+## 概要
+
+チャットAPIは、AIエージェントとの基本的な対話機能を提供します。単一のエージェントとの会話を管理し、コンテキストを維持しながら自然な対話を実現します。
+
+## エンドポイント
+
+### チャットセッションの作成
+
+新しいチャットセッションを開始します。
+
+<CodeGroup>
+```bash Request
+curl -X POST https://api.ai-agent-presentation.com/v1/chat/sessions \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agentId": "agent_123",
+    "config": {
+      "temperature": 0.7,
+      "maxTokens": 1000
+    }
+  }'
+```
+
+```json Response
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_456",
+    "agentId": "agent_123",
+    "createdAt": "2024-06-12T10:00:00Z",
+    "config": {
+      "temperature": 0.7,
+      "maxTokens": 1000
+    }
+  }
+}
+```
+</CodeGroup>
+
+**Parameters:**
+
+<ParamField body="agentId" type="string" required>
+  使用するエージェントのID
+</ParamField>
+
+<ParamField body="config" type="object">
+  チャット設定
+  <Expandable title="config properties">
+    <ParamField body="temperature" type="number" default={0.7}>
+      応答の創造性（0.0-1.0）
+    </ParamField>
+    <ParamField body="maxTokens" type="number" default={1000}>
+      最大トークン数
+    </ParamField>
+    <ParamField body="systemPrompt" type="string">
+      カスタムシステムプロンプト
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### メッセージの送信
+
+セッションにメッセージを送信し、エージェントからの応答を取得します。
+
+<CodeGroup>
+```bash Request
+curl -X POST https://api.ai-agent-presentation.com/v1/chat/sessions/session_456/messages \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "AIの最新トレンドについて教えてください",
+    "context": {
+      "format": "structured",
+      "includeReferences": true
+    }
+  }'
+```
+
+```json Response
+{
+  "success": true,
+  "data": {
+    "messageId": "msg_789",
+    "sessionId": "session_456",
+    "userMessage": {
+      "content": "AIの最新トレンドについて教えてください",
+      "timestamp": "2024-06-12T10:00:00Z"
+    },
+    "agentResponse": {
+      "content": "現在のAI分野では以下のトレンドが注目されています...",
+      "timestamp": "2024-06-12T10:00:02Z",
+      "tokensUsed": 245,
+      "references": [
+        {
+          "title": "AI Research Paper 2024",
+          "url": "https://example.com/paper"
+        }
+      ]
+    }
+  }
+}
+```
+</CodeGroup>
+
+**Parameters:**
+
+<ParamField body="message" type="string" required>
+  ユーザーのメッセージ
+</ParamField>
+
+<ParamField body="context" type="object">
+  メッセージのコンテキスト設定
+  <Expandable title="context properties">
+    <ParamField body="format" type="string" default="natural">
+      応答フォーマット（natural, structured, bullet_points）
+    </ParamField>
+    <ParamField body="includeReferences" type="boolean" default={false}>
+      参考文献を含めるか
+    </ParamField>
+    <ParamField body="language" type="string" default="ja">
+      応答言語
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### ストリーミングチャット
+
+リアルタイムでエージェントの応答をストリーミング受信します。
+
+<CodeGroup>
+```bash Request
+curl -X POST https://api.ai-agent-presentation.com/v1/chat/sessions/session_456/stream \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "message": "スライド作成のプロセスを説明してください"
+  }'
+```
+
+```json Response (Server-Sent Events)
+data: {"type": "start", "messageId": "msg_890"}
+
+data: {"type": "content", "delta": "スライド作成は以下の"}
+
+data: {"type": "content", "delta": "ステップで行われます："}
+
+data: {"type": "content", "delta": "\n1. トピック分析"}
+
+data: {"type": "end", "messageId": "msg_890", "tokensUsed": 156}
+```
+</CodeGroup>
+
+### チャット履歴の取得
+
+セッションのチャット履歴を取得します。
+
+<CodeGroup>
+```bash Request
+curl -X GET "https://api.ai-agent-presentation.com/v1/chat/sessions/session_456/messages?limit=10&offset=0" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json Response
+{
+  "success": true,
+  "data": {
+    "messages": [
+      {
+        "id": "msg_789",
+        "role": "user",
+        "content": "AIの最新トレンドについて教えてください",
+        "timestamp": "2024-06-12T10:00:00Z"
+      },
+      {
+        "id": "msg_790",
+        "role": "assistant",
+        "content": "現在のAI分野では以下のトレンドが注目されています...",
+        "timestamp": "2024-06-12T10:00:02Z",
+        "metadata": {
+          "tokensUsed": 245,
+          "processingTime": 2.1
+        }
+      }
+    ],
+    "pagination": {
+      "total": 50,
+      "limit": 10,
+      "offset": 0,
+      "hasMore": true
+    }
+  }
+}
+```
+</CodeGroup>
+
+### セッション情報の取得
+
+チャットセッションの詳細情報を取得します。
+
+<CodeGroup>
+```bash Request
+curl -X GET https://api.ai-agent-presentation.com/v1/chat/sessions/session_456 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json Response
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_456",
+    "agentId": "agent_123",
+    "status": "active",
+    "createdAt": "2024-06-12T10:00:00Z",
+    "lastActivity": "2024-06-12T10:15:30Z",
+    "messageCount": 12,
+    "totalTokensUsed": 2450,
+    "config": {
+      "temperature": 0.7,
+      "maxTokens": 1000
+    }
+  }
+}
+```
+</CodeGroup>
+
+### セッションの終了
+
+チャットセッションを終了し、リソースを解放します。
+
+<CodeGroup>
+```bash Request
+curl -X DELETE https://api.ai-agent-presentation.com/v1/chat/sessions/session_456 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```json Response
+{
+  "success": true,
+  "data": {
+    "sessionId": "session_456",
+    "terminatedAt": "2024-06-12T10:30:00Z",
+    "summary": {
+      "duration": 1800,
+      "messageCount": 12,
+      "totalTokensUsed": 2450
+    }
+  }
+}
+```
+</CodeGroup>
+
+## WebSocket リアルタイムチャット
+
+### 接続
+
+```javascript
+const ws = new WebSocket('wss://api.ai-agent-presentation.com/v1/chat/ws');
+
+// 認証
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'auth',
+    token: 'YOUR_API_KEY'
+  }));
+};
+
+// セッション開始
+ws.send(JSON.stringify({
+  type: 'start_session',
+  agentId: 'agent_123'
+}));
+```
+
+### メッセージ送信
+
+```javascript
+ws.send(JSON.stringify({
+  type: 'message',
+  sessionId: 'session_456',
+  content: 'こんにちは！'
+}));
+```
+
+### レスポンス受信
+
+```javascript
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  switch (data.type) {
+    case 'message_start':
+      console.log('エージェントが応答を開始しました');
+      break;
+    case 'message_delta':
+      console.log('部分応答:', data.content);
+      break;
+    case 'message_complete':
+      console.log('応答完了:', data);
+      break;
+    case 'error':
+      console.error('エラー:', data.error);
+      break;
+  }
+};
+```
+
+## エラーハンドリング
+
+### 一般的なエラー
+
+<AccordionGroup>
+  <Accordion title="400 - 無効なリクエスト">
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "INVALID_MESSAGE",
+        "message": "メッセージが空か無効です",
+        "details": {
+          "field": "message",
+          "value": ""
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="404 - セッションが見つからない">
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "SESSION_NOT_FOUND",
+        "message": "指定されたセッションが見つかりません",
+        "details": {
+          "sessionId": "session_456"
+        }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="429 - レート制限">
+    ```json
+    {
+      "success": false,
+      "error": {
+        "code": "RATE_LIMIT_EXCEEDED",
+        "message": "リクエスト制限に達しました",
+        "details": {
+          "resetTime": "2024-06-12T11:00:00Z"
+        }
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## SDKサンプル
+
+### JavaScript/TypeScript
+
+```typescript
+import { ChatClient } from '@ai-agent/sdk';
+
+const client = new ChatClient({
+  apiKey: 'YOUR_API_KEY',
+  baseUrl: 'https://api.ai-agent-presentation.com/v1'
+});
+
+// セッション開始
+const session = await client.createSession({
+  agentId: 'agent_123',
+  config: { temperature: 0.7 }
+});
+
+// メッセージ送信
+const response = await session.sendMessage('AIについて教えて');
+console.log(response.content);
+
+// ストリーミング
+session.streamMessage('詳しく説明して', (chunk) => {
+  process.stdout.write(chunk.delta);
+});
+```
+
+### Python
+
+```python
+from ai_agent_sdk import ChatClient
+
+client = ChatClient(api_key='YOUR_API_KEY')
+
+# セッション開始
+session = client.create_session(
+    agent_id='agent_123',
+    config={'temperature': 0.7}
+)
+
+# メッセージ送信
+response = session.send_message('AIについて教えて')
+print(response.content)
+
+# ストリーミング
+for chunk in session.stream_message('詳しく説明して'):
+    print(chunk.delta, end='')
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="マルチエージェントチャット" icon="users" href="/api-reference/endpoint/multi-agent-chat">
+    複数のエージェントとの協調チャット
+  </Card>
+  
+  <Card title="チャットボット構築ガイド" icon="robot" href="/guides/building-chatbot">
+    チャットAPIを使用したボットの構築方法
+  </Card>
+  
+  <Card title="WebSocket ガイド" icon="plug" href="/guides/websocket-integration">
+    リアルタイム機能の詳細な実装
+  </Card>
+  
+  <Card title="エージェント管理" icon="settings" href="/api-reference/endpoint/agents">
+    エージェントの作成と管理
+  </Card>
+</CardGroup>

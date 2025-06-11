@@ -1,54 +1,75 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "AI Agent Presentation Framework",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#3B82F6",
+    "light": "#60A5FA",
+    "dark": "#2563EB"
   },
   "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "ガイド",
         "groups": [
           {
-            "group": "Get Started",
+            "group": "はじめに",
             "pages": [
               "index",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Essentials",
+            "group": "コア概念",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/settings",
-              "essentials/navigation",
-              "essentials/reusable-snippets"
+              "core-concepts/agents",
+              "core-concepts/tools",
+              "core-concepts/workflows",
+              "core-concepts/memory"
+            ]
+          },
+          {
+            "group": "実践ガイド",
+            "pages": [
+              "guides/creating-agent",
+              "guides/adding-tools",
+              "guides/building-workflows",
+              "guides/multi-agent-chat",
+              "guides/slide-creator",
+              "guides/deep-research"
+            ]
+          },
+          {
+            "group": "デプロイメント",
+            "pages": [
+              "deployment/production",
+              "deployment/docker",
+              "deployment/scaling"
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "APIリファレンス",
         "groups": [
           {
-            "group": "API Documentation",
+            "group": "API概要",
             "pages": [
               "api-reference/introduction"
             ]
           },
           {
-            "group": "Endpoint Examples",
+            "group": "エンドポイント",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
+              "api-reference/endpoint/chat",
+              "api-reference/endpoint/multi-agent-chat",
+              "api-reference/endpoint/slide-creator",
+              "api-reference/endpoint/deep-research",
+              "api-reference/endpoint/export-pptx",
+              "api-reference/endpoint/extract-keywords",
+              "api-reference/endpoint/media",
               "api-reference/endpoint/webhook"
             ]
           }
@@ -58,19 +79,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/your-org/ai-agent-presentation",
+          "icon": "github"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "デモ",
+          "href": "https://demo.ai-agent-presentation.com",
+          "icon": "play"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "コミュニティ",
+          "href": "https://discord.gg/ai-agent-presentation",
+          "icon": "discord"
         }
       ]
     }
@@ -82,21 +103,21 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "サポート",
+        "href": "mailto:support@ai-agent-presentation.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "ダッシュボード",
+      "href": "https://dashboard.ai-agent-presentation.com"
     }
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/aiagentpresentation",
+      "github": "https://github.com/your-org/ai-agent-presentation",
+      "linkedin": "https://linkedin.com/company/ai-agent-presentation"
     }
   }
 }

@@ -1,0 +1,399 @@
+---
+title: 'エージェント'
+description: 'フレームワークの中核となるAIエージェントの仕組み'
+---
+
+## エージェントとは
+
+AI Agent Presentation Frameworkにおけるエージェントは、特定のタスクを実行する自律的なAIユニットです。各エージェントは独自の目的、ツール、メモリを持ち、他のエージェントと協調して複雑なタスクを遂行します。
+
+### エージェントの特徴
+
+- **自律性**: 与えられたタスクを独立して実行
+- **特化性**: 特定の領域に特化した処理能力
+- **協調性**: 他のエージェントとの連携が可能
+- **拡張性**: 新しいツールや能力の追加が容易
+
+## エージェントのアーキテクチャ
+
+### 基本構造
+
+```typescript
+interface Agent {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  tools: Tool[];
+  memory: Memory;
+  config: AgentConfig;
+}
+```
+
+### コンポーネント
+
+<Tabs>
+  <Tab title="プロンプト">
+    エージェントの振る舞いを定義する指示文：
+    
+    ```typescript
+    const prompt = `
+      あなたはリサーチ専門のAIエージェントです。
+      与えられたトピックについて、包括的な調査を行い、
+      構造化された情報を提供してください。
+      
+      重要な点：
+      - 信頼できる情報源を使用する
+      - 複数の視点を考慮する
+      - 明確で簡潔な要約を提供する
+    `;
+    ```
+  </Tab>
+  
+  <Tab title="ツール">
+    エージェントが使用できる機能の集合：
+    
+    ```typescript
+    const tools = [
+      new WebSearchTool(),
+      new DocumentAnalyzer(),
+      new DataExtractor(),
+      new Summarizer()
+    ];
+    ```
+  </Tab>
+  
+  <Tab title="メモリ">
+    エージェントの記憶と学習を管理：
+    
+    ```typescript
+    const memory = new Memory({
+      type: 'vector',
+      capacity: 1000,
+      persistance: true
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## エージェントの作成
+
+### 基本的なエージェント
+
+```typescript
+import { Agent } from '@/mastra/agent';
+
+const researchAgent = new Agent({
+  name: 'ResearchAgent',
+  description: 'Webリサーチと情報収集を行うエージェント',
+  prompt: `あなたは優秀なリサーチアシスタントです。
+           与えられたトピックについて詳細な調査を行います。`,
+  tools: [
+    new WebSearchTool(),
+    new SummarizerTool()
+  ]
+});
+```
+
+### 高度なエージェント
+
+```typescript
+const advancedAgent = new Agent({
+  name: 'AdvancedResearchAgent',
+  description: '高度な分析機能を持つリサーチエージェント',
+  prompt: researchPrompt,
+  tools: [
+    new WebSearchTool(),
+    new DocumentAnalyzer(),
+    new DataVisualizationTool(),
+    new CitationManager()
+  ],
+  config: {
+    temperature: 0.7,
+    maxTokens: 4000,
+    topP: 0.9,
+    model: 'gpt-4'
+  },
+  memory: new VectorMemory({
+    dimension: 1536,
+    indexType: 'hnsw'
+  })
+});
+```
+
+## エージェントのライフサイクル
+
+### 1. 初期化フェーズ
+
+```typescript
+// エージェントの初期化
+await agent.initialize();
+
+// ツールの準備
+await agent.loadTools();
+
+// メモリの復元
+await agent.restoreMemory();
+```
+
+### 2. 実行フェーズ
+
+```typescript
+// タスクの実行
+const result = await agent.execute({
+  task: 'AI技術の最新トレンドを調査',
+  context: {
+    depth: 'detailed',
+    sources: ['academic', 'industry'],
+    language: 'ja'
+  }
+});
+```
+
+### 3. 学習フェーズ
+
+```typescript
+// 実行結果から学習
+await agent.learn({
+  input: task,
+  output: result,
+  feedback: userFeedback
+});
+
+// メモリの永続化
+await agent.saveMemory();
+```
+
+## エージェントの種類
+
+### 組み込みエージェント
+
+<CardGroup cols={2}>
+  <Card title="ChatAgent" icon="comments">
+    基本的な対話機能を提供
+    ```typescript
+    const chatAgent = new ChatAgent({
+      personality: 'friendly',
+      language: 'ja'
+    });
+    ```
+  </Card>
+  
+  <Card title="ResearchAgent" icon="magnifying-glass">
+    情報収集と分析に特化
+    ```typescript
+    const researchAgent = new ResearchAgent({
+      depth: 'comprehensive',
+      sources: ['web', 'academic']
+    });
+    ```
+  </Card>
+  
+  <Card title="SlideCreatorAgent" icon="presentation">
+    プレゼンテーション生成
+    ```typescript
+    const slideAgent = new SlideCreatorAgent({
+      template: 'professional',
+      slideCount: 10
+    });
+    ```
+  </Card>
+  
+  <Card title="CodeAgent" icon="code">
+    コード生成と分析
+    ```typescript
+    const codeAgent = new CodeAgent({
+      languages: ['typescript', 'python'],
+      style: 'clean-code'
+    });
+    ```
+  </Card>
+</CardGroup>
+
+### カスタムエージェントの作成
+
+```typescript
+class CustomAnalysisAgent extends Agent {
+  constructor(config: CustomAgentConfig) {
+    super({
+      name: 'CustomAnalysis',
+      description: '特殊な分析を行うカスタムエージェント',
+      prompt: config.prompt,
+      tools: [
+        new CustomAnalysisTool(),
+        new VisualizationTool()
+      ]
+    });
+  }
+  
+  // カスタムメソッド
+  async analyzePattern(data: any[]) {
+    // 独自の分析ロジック
+    const patterns = await this.detectPatterns(data);
+    const insights = await this.generateInsights(patterns);
+    
+    return {
+      patterns,
+      insights,
+      visualization: await this.visualize(patterns)
+    };
+  }
+}
+```
+
+## エージェント間の通信
+
+### メッセージベース通信
+
+```typescript
+// エージェント間でメッセージを送信
+await agent1.sendMessage(agent2.id, {
+  type: 'request',
+  content: 'データ分析を依頼',
+  data: rawData
+});
+
+// メッセージの受信と処理
+agent2.on('message', async (message) => {
+  if (message.type === 'request') {
+    const result = await agent2.process(message.data);
+    await agent2.reply(message.sender, {
+      type: 'response',
+      result
+    });
+  }
+});
+```
+
+### 共有メモリ
+
+```typescript
+// 共有メモリの作成
+const sharedMemory = new SharedMemory('project-x');
+
+// エージェントAがデータを保存
+await agentA.saveToSharedMemory(sharedMemory, {
+  key: 'research-findings',
+  data: findings
+});
+
+// エージェントBがデータを取得
+const findings = await agentB.loadFromSharedMemory(
+  sharedMemory, 
+  'research-findings'
+);
+```
+
+## パフォーマンス最適化
+
+### 並列実行
+
+```typescript
+// 複数のエージェントを並列実行
+const results = await Promise.all([
+  webSearchAgent.search(query),
+  databaseAgent.query(query),
+  fileAgent.searchDocuments(query)
+]);
+
+// 結果の統合
+const mergedResults = await integrationAgent.merge(results);
+```
+
+### リソース管理
+
+```typescript
+// エージェントのリソース制限設定
+const agent = new Agent({
+  name: 'ResourceLimitedAgent',
+  config: {
+    maxMemory: '512MB',
+    maxExecutionTime: 30000, // 30秒
+    maxConcurrentTasks: 5
+  }
+});
+
+// リソース使用状況の監視
+agent.on('resource-warning', (usage) => {
+  console.log(`リソース使用率: ${usage.percentage}%`);
+});
+```
+
+## ベストプラクティス
+
+### 1. 単一責任の原則
+
+各エージェントは1つの明確な責任を持つように設計：
+
+```typescript
+// Good: 特化したエージェント
+const searchAgent = new WebSearchAgent();
+const analyzerAgent = new DataAnalyzerAgent();
+const presenterAgent = new PresentationAgent();
+
+// Bad: 多機能エージェント
+const doEverythingAgent = new Agent({
+  tools: [search, analyze, present, email, ...]
+});
+```
+
+### 2. エラーハンドリング
+
+```typescript
+try {
+  const result = await agent.execute(task);
+  return result;
+} catch (error) {
+  if (error instanceof AgentTimeoutError) {
+    // タイムアウト処理
+    return await agent.executeWithExtendedTimeout(task);
+  } else if (error instanceof ToolError) {
+    // ツールエラー処理
+    return await agent.executeWithAlternativeTool(task);
+  }
+  throw error;
+}
+```
+
+### 3. ログとモニタリング
+
+```typescript
+// 詳細なログ設定
+const agent = new Agent({
+  logging: {
+    level: 'debug',
+    destinations: ['console', 'file'],
+    includeMetrics: true
+  }
+});
+
+// メトリクスの収集
+agent.on('task-completed', (metrics) => {
+  telemetry.record({
+    agentId: agent.id,
+    taskDuration: metrics.duration,
+    tokensUsed: metrics.tokens,
+    success: metrics.success
+  });
+});
+```
+
+## 次のステップ
+
+<CardGroup cols={2}>
+  <Card title="ツール" icon="wrench" href="/core-concepts/tools">
+    エージェントが使用するツールについて学ぶ
+  </Card>
+  
+  <Card title="ワークフロー" icon="diagram-project" href="/core-concepts/workflows">
+    エージェントを連携させるワークフローの構築
+  </Card>
+  
+  <Card title="メモリ管理" icon="brain" href="/core-concepts/memory">
+    エージェントのメモリシステムの詳細
+  </Card>
+  
+  <Card title="実装ガイド" icon="code" href="/guides/creating-agent">
+    実際にエージェントを作成するステップバイステップガイド
+  </Card>
+</CardGroup>
