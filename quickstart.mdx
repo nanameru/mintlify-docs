@@ -1,139 +1,110 @@
 ---
-title: 'クイックスタート'
-description: '5分で最初のAIエージェントを動かし始める'
+title: 'はじめ方ガイド'
+description: '初回利用の流れと基本操作を学ぶ'
 ---
 
 ## はじめに
 
-AI Agent Presentation Frameworkを使って、最初のAIエージェントを素早く立ち上げる方法を説明します。
+AI Agent Presentation Frameworkを使って、初回利用の流れと基本的な操作方法を説明します。
 
-### 前提条件
+## 初回利用の流れ
 
-始める前に、以下の環境が準備されていることを確認してください：
+### 1. アクセスとセットアップ
 
-- Node.js 18以上
-- npm または yarn
-- Git
-- テキストエディタ（VS Code推奨）
+アプリケーションにアクセスすると、メインのチャット画面が表示されます。特別な登録は不要で、すぐに利用を開始できます。
 
-## セットアップ
+### 2. 基本的な使い方
 
-### 1. プロジェクトのクローン
+**チャット入力**
+画面下部の入力フィールドに、やりたいことを自然言語で入力してください。
 
-<Steps>
-  <Step title="リポジトリのクローン">
-    まず、プロジェクトをローカル環境にクローンします：
-    
-    ```bash
-    git clone https://github.com/your-org/ai-agent-presentation.git
-    cd ai-agent-presentation
-    ```
-  </Step>
-  
-  <Step title="依存関係のインストール">
-    プロジェクトディレクトリで以下のコマンドを実行：
-    
-    ```bash
-    npm install
-    # または
-    yarn install
-    ```
-  </Step>
-  
-  <Step title="環境変数の設定">
-    `.env.example` ファイルをコピーして `.env.local` を作成：
-    
-    ```bash
-    cp .env.example .env.local
-    ```
-    
-    必要なAPIキーを設定します：
-    ```env
-    OPENAI_API_KEY=your_openai_api_key
-    DATABASE_URL=your_database_url
-    ```
-  </Step>
-</Steps>
+例：
+- "マーケティング戦略についてのプレゼンテーションを作成して"
+- "AI技術の最新動向をリサーチして"
+- "会社紹介のスライドを10枚作成して"
 
-### 2. 開発サーバーの起動
+**音声入力**
+マイクボタンをクリックすると、音声でも指示を入力できます。
 
-環境設定が完了したら、開発サーバーを起動します：
+### 3. AIエージェントの動作確認
 
-```bash
-npm run dev
-# または
-yarn dev
-```
+指示を送信すると、AIエージェントが思考を開始します。画面に「思考中...」「Web検索中...」「生成中...」などのステータスが表示され、進捗を確認できます。
 
-ブラウザで `http://localhost:3000` を開くと、アプリケーションが表示されます。
+### 4. 結果の確認
 
-## 最初のエージェントを作成
+作業が完了すると、結果がチャット画面に表示されます。スライドの場合はプレビューパネルが自動で開き、画像の場合は生成された画像が表示されます。
 
-### シンプルなチャットエージェント
+### 5. 調整と改善
 
-以下のコードで基本的なチャットエージェントを作成できます：
+結果に満足できない場合は、追加の指示を送信して内容を調整できます。
 
-```typescript
-import { Agent } from '@/mastra/agent';
+例：
+- "もっと具体的なデータを追加して"
+- "色合いをもう少し明るくして"
+- "スライドを5枚追加して"
 
-const chatAgent = new Agent({
-  name: 'SimpleChat',
-  description: 'シンプルなチャットエージェント',
-  tools: [],
-  prompt: `あなたは親切なアシスタントです。
-           ユーザーの質問に分かりやすく答えてください。`
-});
+## 効果的な指示の出し方
 
-// エージェントの実行
-const response = await chatAgent.execute({
-  messages: [{ role: 'user', content: 'こんにちは！' }]
-});
+### 明確な目的を伝える
 
-console.log(response);
-```
+❌ 悪い例: "何か作って"
+✅ 良い例: "新商品発表用のプレゼンテーションを10分間の発表用に作成して"
 
-### エージェントのテスト
+### 具体的な条件を指定
 
-作成したエージェントをテストするには：
+❌ 悪い例: "リサーチして"
+✅ 良い例: "2024年のEV市場について、市場規模、主要企業、技術動向の3点を調査して"
 
-<Tabs>
-  <Tab title="API経由">
-    ```bash
-    curl -X POST http://localhost:3000/api/chat \
-      -H "Content-Type: application/json" \
-      -d '{
-        "messages": [{"role": "user", "content": "こんにちは！"}]
-      }'
-    ```
-  </Tab>
-  
-  <Tab title="UIから">
-    1. ブラウザで `http://localhost:3000` を開く
-    2. チャット画面でメッセージを入力
-    3. Enterキーを押すか送信ボタンをクリック
-  </Tab>
-</Tabs>
+### 段階的な指示
+
+複雑なタスクは段階に分けて指示することで、より良い結果が得られます。
+
+1. "まず、○○についてリサーチして"
+2. "次に、その結果を基にスライド構成を考えて"
+3. "最後に、実際のスライドを作成して"
+
+## よく使う指示パターン
+
+### プレゼンテーション作成
+
+"[テーマ]について[対象者]向けに[時間]のプレゼンテーションを作成してください。
+含めたい内容：[具体的な要素]"
+
+### リサーチ依頼
+
+"[トピック]について以下の観点から調査してください：
+1. [観点1]
+2. [観点2]
+3. [観点3]
+信頼できるソースからの最新情報を重視してください。"
+
+### 画像生成
+
+"[用途]用の画像を生成してください。
+スタイル：[リアル/イラスト/抽象的など]
+色調：[明るい/落ち着いた/カラフルなど]
+要素：[含めたい要素]"
 
 ## 次のステップ
 
 <CardGroup cols={2}>
-  <Card title="エージェントの詳細" icon="robot" href="/core-concepts/agents">
-    エージェントの詳しい仕組みと高度な機能について学ぶ
+  <Card title="機能詳細" icon="list" href="/features">
+    全機能の詳細な説明を確認
   </Card>
   
-  <Card title="ツールの追加" icon="wrench" href="/guides/adding-tools">
-    エージェントに独自のツールを追加する方法
+  <Card title="チャット画面の使い方" icon="comments" href="/user-guide/chat-interface">
+    効果的な指示の出し方と画面操作
   </Card>
   
-  <Card title="ワークフローの構築" icon="diagram-project" href="/guides/building-workflows">
-    複数のエージェントを連携させたワークフローの作成
+  <Card title="スライド生成" icon="presentation" href="/user-guide/slide-generation">
+    プレゼンテーション作成の詳細ガイド
   </Card>
   
-  <Card title="APIリファレンス" icon="code" href="/api-reference/introduction">
-    利用可能なAPIエンドポイントの詳細
+  <Card title="実践チュートリアル" icon="play" href="/tutorials/create-presentation">
+    新商品発表プレゼンの作成例
   </Card>
 </CardGroup>
 
 <Info>
-  **ヒント**: 開発中は `npm run dev` でホットリロードが有効になるため、コードの変更が即座に反映されます。
+  **ヒント**: 初回利用時は簡単なタスクから始めて、アプリケーションの動作を確認することをお勧めします。
 </Info>
